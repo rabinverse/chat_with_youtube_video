@@ -65,6 +65,7 @@ if "chat_history" not in st.session_state:
 if "video_title" not in st.session_state:
     st.session_state.video_title = None
 
+# Minimal CSS
 st.markdown(
     """
     <style>
@@ -79,7 +80,7 @@ st.markdown(
 # Header
 st.title("YouTube Q&A")
 
-# Sidebar 
+# Sidebar Configuration
 with st.sidebar:
     st.header("Settings")
 
@@ -111,36 +112,11 @@ with st.sidebar:
         "OpenAI": "OpenAI API Key",
     }
     
-    ##
-    secret_key = f"{provider.upper().replace(' ', '_')}_API_KEY"
-    default_key = ""
-    
-    try:
-        if secret_key in st.secrets:
-            default_key = st.secrets[secret_key]
-    except:
-        pass
-    
-    if not default_key and secret_key in os.environ:
-        default_key = os.environ[secret_key]
-    
-    if default_key:
-        st.success(f"✓ {api_key_label[provider]} configured from secrets")
-        api_key = default_key
-    else:
-        st.caption("Visit providers api/docs then create and paste API key here")
-        api_key = st.text_input(
-            api_key_label[provider],
-            type="password",
-            value="",
-        )
-
-        if st.button("Save API Key"):
-            if api_key:
-                os.environ[secret_key] = api_key
-                st.success("Saved")
-            else:
-                st.error("Enter key")
+    st.caption("Visit providers api/docs then create and paste API key here")
+    api_key = st.text_input(
+        api_key_label[provider],
+        type="password",
+    )
     
     st.caption(
         "Visit https://www.webshare.io/, and find proxy in the free section paste here the link incase Youtube blocks without porxy "
@@ -161,22 +137,7 @@ with st.sidebar:
         st.rerun()
 
 # Main content
-api_key_env_var = f"{provider.upper().replace(' ', '_')}_API_KEY"
-has_api_key = False
-
-try:
-    if api_key_env_var in st.secrets:
-        has_api_key = True
-except:
-    pass
-
-if not has_api_key and api_key_env_var in os.environ and os.environ[api_key_env_var]:
-    has_api_key = True
-
-if not has_api_key and api_key:
-    has_api_key = True
-
-if not has_api_key:
+if not api_key:
     st.warning("Set API key in sidebar")
 else:
     url = st.text_input(
@@ -219,24 +180,14 @@ else:
                     )
                     chunks = splitter.create_documents([transcript])
 
-                    google_key = ""
-                    try:
-                        if "GOOGLE_API_KEY" in st.secrets:
-                            google_key = st.secrets["GOOGLE_API_KEY"]
-                    except:
-                        pass
-                    
-                    if not google_key and "GOOGLE_API_KEY" in os.environ:
-                        google_key = os.environ["GOOGLE_API_KEY"]
-                    
-                    if google_key:
-                        os.environ["GOOGLE_API_KEY"] = google_key
-                        embeddings = GoogleGenerativeAIEmbeddings(
-                            model="models/text-embedding-004"
-                        )
-                    else:
+                    if not api_key:
                         st.error("Google API Key needed for embeddings")
                         st.stop()
+                    
+                    os.environ["GOOGLE_API_KEY"] = api_key
+                    embeddings = GoogleGenerativeAIEmbeddings(
+                        model="models/text-embedding-004"
+                    )
 
                     vector_store = FAISS.from_documents(chunks, embeddings)
                     st.session_state.vector_store = vector_store
@@ -256,7 +207,7 @@ else:
 # Q&A Section
 if st.session_state.vector_store:
 
-    #  chat history
+    # Display chat history
     if st.session_state.chat_history:
         for q, a in st.session_state.chat_history:
             st.write(f"**Q:** {q}")
