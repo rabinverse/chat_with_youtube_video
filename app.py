@@ -19,7 +19,7 @@ from langchain_core.output_parsers import StrOutputParser
 from requests import Session
 
 # Configure page
-st.set_page_config(page_title="YouTube Q&A Assistant", page_icon="chat", layout="wide")
+st.set_page_config(page_title="YouTube Q&A Assistant", page_icon="🎥", layout="wide")
 
 
 def extract_video_id(url):
@@ -76,6 +76,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Header
 st.title("YouTube Q&A")
 
 # Sidebar 
@@ -109,19 +110,38 @@ with st.sidebar:
         "Google Gemini": "Google API Key",
         "OpenAI": "OpenAI API Key",
     }
-    st.caption("Visit providers api/docs then create and paste API key here")
-    api_key = st.text_input(
-        api_key_label[provider],
-        type="password",
-        value=os.environ.get(f"{provider.upper().replace(' ', '_')}_API_KEY", ""),
-    )
+    
+    ##
+    secret_key = f"{provider.upper().replace(' ', '_')}_API_KEY"
+    default_key = ""
+    
+    try:
+        if secret_key in st.secrets:
+            default_key = st.secrets[secret_key]
+    except:
+        pass
+    
+    if not default_key and secret_key in os.environ:
+        default_key = os.environ[secret_key]
+    
+    if default_key:
+        st.success(f"✓ {api_key_label[provider]} configured from secrets")
+        api_key = default_key
+    else:
+        st.caption("Visit providers api/docs then create and paste API key here")
+        api_key = st.text_input(
+            api_key_label[provider],
+            type="password",
+            value="",
+        )
 
-    if st.button("Save API Key"):
-        if api_key:
-            os.environ[f"{provider.upper().replace(' ', '_')}_API_KEY"] = api_key
-            st.success("Saved")
-        else:
-            st.error("Enter key")
+        if st.button("Save API Key"):
+            if api_key:
+                os.environ[secret_key] = api_key
+                st.success("Saved")
+            else:
+                st.error("Enter key")
+    
     st.caption(
         "Visit https://www.webshare.io/, and find proxy in the free section paste here the link incase Youtube blocks without porxy "
     )
@@ -142,7 +162,21 @@ with st.sidebar:
 
 # Main content
 api_key_env_var = f"{provider.upper().replace(' ', '_')}_API_KEY"
-if api_key_env_var not in os.environ or not os.environ[api_key_env_var]:
+has_api_key = False
+
+try:
+    if api_key_env_var in st.secrets:
+        has_api_key = True
+except:
+    pass
+
+if not has_api_key and api_key_env_var in os.environ and os.environ[api_key_env_var]:
+    has_api_key = True
+
+if not has_api_key and api_key:
+    has_api_key = True
+
+if not has_api_key:
     st.warning("Set API key in sidebar")
 else:
     url = st.text_input(
@@ -185,7 +219,18 @@ else:
                     )
                     chunks = splitter.create_documents([transcript])
 
-                    if "GOOGLE_API_KEY" in os.environ and os.environ["GOOGLE_API_KEY"]:
+                    google_key = ""
+                    try:
+                        if "GOOGLE_API_KEY" in st.secrets:
+                            google_key = st.secrets["GOOGLE_API_KEY"]
+                    except:
+                        pass
+                    
+                    if not google_key and "GOOGLE_API_KEY" in os.environ:
+                        google_key = os.environ["GOOGLE_API_KEY"]
+                    
+                    if google_key:
+                        os.environ["GOOGLE_API_KEY"] = google_key
                         embeddings = GoogleGenerativeAIEmbeddings(
                             model="models/text-embedding-004"
                         )
